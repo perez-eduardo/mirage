@@ -13,7 +13,7 @@
     },
     "action_space": {
       "type": "json",
-      "description": "A JSON object with an 'action' field, one of read_ticket, lookup_account, check_policy, apply_fix, respond_user, escalate, resolve_ticket. Optional fields: fix_type, message, reason, resolution_code, params. The full schema and an example appear in each observation."
+      "description": "A JSON object with a single 'action' field whose value is one action name. Investigation: read_ticket, lookup_account, check_policy. Fixes: fix_reset_password, fix_refund_charge, fix_reset_entitlement, fix_update_address, fix_replace_item, fix_update_billing. Closing: respond_user, escalate, resolve_fixed, resolve_denied. No other fields are read. The full list appears in each observation."
     },
     "reward": {
       "type": "scalar",
