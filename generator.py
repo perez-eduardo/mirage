@@ -37,6 +37,7 @@ class Ticket:
     escalation_penalty: bool
     required_fix_params: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
+    tier: int = 1
 
 
 # ------------------------------------------------------------ case A builders
@@ -391,12 +392,39 @@ _ARCHETYPES: dict[str, list[Callable[[random.Random, int], Ticket]]] = {
 
 
 def generate_episode(seed: int) -> list[Ticket]:
-    """Slice 2: deterministic six-ticket shift, one of each case type in A..F order."""
+    """Slice 3: deterministic per-tier episode composition.
+
+    Seeds 1-12  -> Tier 1, six case A tickets.
+    Seeds 13-30 -> Tier 2, {B,C,D,E} guaranteed plus two more from {B,C,D,E}, shuffled.
+    Seeds 31-36 -> Tier 3, multiset {F,F,B,C} shuffled.
+    Other seeds -> defensive T2 fallback so the env never crashes.
+    """
     rng = random.Random(seed)
-    case_types = ["A", "B", "C", "D", "E", "F"]
+
+    if 1 <= seed <= 12:
+        tier = 1
+        case_lineup = ["A", "A", "A", "A", "A", "A"]
+    elif 13 <= seed <= 30:
+        tier = 2
+        case_lineup = ["B", "C", "D", "E"]
+        case_lineup.append(rng.choice(["B", "C", "D", "E"]))
+        case_lineup.append(rng.choice(["B", "C", "D", "E"]))
+        rng.shuffle(case_lineup)
+    elif 31 <= seed <= 36:
+        tier = 3
+        case_lineup = ["F", "F", "B", "C"]
+        rng.shuffle(case_lineup)
+    else:
+        tier = 2
+        case_lineup = ["B", "C", "D", "E"]
+        case_lineup.append(rng.choice(["B", "C", "D", "E"]))
+        case_lineup.append(rng.choice(["B", "C", "D", "E"]))
+        rng.shuffle(case_lineup)
+
     tickets: list[Ticket] = []
-    for i, case_type in enumerate(case_types):
-        builders = _ARCHETYPES[case_type]
-        builder = rng.choice(builders) if len(builders) > 1 else builders[0]
-        tickets.append(builder(rng, i))
+    for idx, case_type in enumerate(case_lineup):
+        builder = rng.choice(_ARCHETYPES[case_type])
+        ticket = builder(rng, idx)
+        ticket.tier = tier
+        tickets.append(ticket)
     return tickets
