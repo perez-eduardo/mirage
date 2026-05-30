@@ -1,0 +1,8 @@
+_scratch/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+showcase/replay*.json
+.DS_Store
