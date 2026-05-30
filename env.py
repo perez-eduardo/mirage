@@ -45,9 +45,30 @@ _ACTION_EXAMPLE = {
 
 _JSON_OBJECT_RE = re.compile(r"\{.*\}", re.DOTALL)
 
+_ALL_ACTION_NAMES = list(_BASE_ACTIONS) + ["mark_metric_success"]
+
+
+def _extract_action_name(text: str) -> str | None:
+    """Return the earliest known action name appearing as a whole token, else None."""
+    earliest_pos: int | None = None
+    earliest_name: str | None = None
+    for name in _ALL_ACTION_NAMES:
+        m = re.search(r"\b" + re.escape(name) + r"\b", text)
+        if m is not None and (earliest_pos is None or m.start() < earliest_pos):
+            earliest_pos = m.start()
+            earliest_name = name
+    return earliest_name
+
 
 def _parse_action(action: Any) -> dict[str, Any]:
-    """Robustly coerce an agent action into a dict. Never raises."""
+    """Coerce an agent action into a dict. Never raises.
+
+    The serve layer hands step whatever the harness extracted from the model
+    output. In practice that is a string: a full JSON object, a JSON scalar like
+    "read_ticket", a bare action name, or raw model text with the name in prose.
+    A plain dict (used by the local tests) is also accepted. Anything else, or an
+    unrecognizable string, yields {} so step treats it as invalid.
+    """
     if isinstance(action, dict):
         return action
     if not isinstance(action, str):
@@ -55,20 +76,34 @@ def _parse_action(action: Any) -> dict[str, Any]:
     text = action.strip()
     if not text:
         return {}
+
+    # 1) Whole string parses as JSON.
     try:
         parsed = json.loads(text)
-        if isinstance(parsed, dict):
-            return parsed
     except (ValueError, TypeError):
-        pass
+        parsed = None
+    if isinstance(parsed, dict):
+        return parsed
+    if isinstance(parsed, str):
+        name = _extract_action_name(parsed)
+        if name:
+            return {"action": name}
+
+    # 2) Embedded JSON object anywhere in the text. Preserves params like fix_type.
     match = _JSON_OBJECT_RE.search(text)
     if match:
         try:
-            parsed = json.loads(match.group(0))
-            if isinstance(parsed, dict):
-                return parsed
+            embedded = json.loads(match.group(0))
+            if isinstance(embedded, dict):
+                return embedded
         except (ValueError, TypeError):
-            return {}
+            pass
+
+    # 3) Bare or prose-wrapped action name.
+    name = _extract_action_name(text)
+    if name:
+        return {"action": name}
+
     return {}
 
 

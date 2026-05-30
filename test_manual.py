@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from env import MirageEnv
+from env import MirageEnv, _parse_action
 from generator import Ticket, generate_episode
 
 
@@ -120,6 +120,35 @@ def _collect_labels(result, labels: set[str]) -> None:
 
 def _lineup_str(tickets: list[Ticket]) -> str:
     return ", ".join(f"{t.case_type}:{t.required_action}" for t in tickets)
+
+
+def run_parse_action_robustness():
+    print("=== PARSE ACTION ROBUSTNESS (no model) ===")
+    cases = [
+        ({"action": "check_policy"}, {"action": "check_policy"}),
+        ("read_ticket", {"action": "read_ticket"}),
+        ('"read_ticket"', {"action": "read_ticket"}),
+        ("apply_fix", {"action": "apply_fix"}),
+        (
+            '"read_ticket" \n\nThe agent should start by reading the current ticket (T001).',
+            {"action": "read_ticket"},
+        ),
+        (
+            '{"action": "apply_fix", "fix_type": "reset_password"}',
+            {"action": "apply_fix", "fix_type": "reset_password"},
+        ),
+        ('{"action": "resolve_ticket", "resolution_code": "denied"}',
+         {"action": "resolve_ticket", "resolution_code": "denied"}),
+        ("mark_metric_success", {"action": "mark_metric_success"}),
+        ("", {}),
+        ("no known verb here at all", {}),
+    ]
+    for raw, expected in cases:
+        got = _parse_action(raw)
+        assert got == expected, f"_parse_action({raw!r}) = {got!r}, expected {expected!r}"
+        print(f"  ok: {raw!r} -> {got!r}")
+    print("  Parse robustness OK")
+    print()
 
 
 # ----------------------------------------------------------------- 7.5 determinism
@@ -394,6 +423,7 @@ def run_explain_resolve_checks():
 if __name__ == "__main__":
     observed: set[str] = set()
 
+    run_parse_action_robustness()
     run_determinism()
     run_tier_gating()
 
