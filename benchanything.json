@@ -17,7 +17,7 @@
     },
     "reward": {
       "type": "scalar",
-      "range": {"low": -2.0, "high": 7.0},
+      "range": {"low": -2.0, "high": 10.0},
       "description": "Per-step proxy score delta. Not the true objective; truth lives in terminal_info."
     },
     "episode": {
