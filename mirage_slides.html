@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mirage: The False Metric · slides</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b0d11;
+    --panel: #14171e;
+    --line: #262b35;
+    --text: #e9ebef;
+    --muted: #8b919d;
+    --gold: #f0b429;
+    --teal: #2dd4bf;
+    --red: #f05a5a;
+    --serif: "Fraunces", Georgia, serif;
+    --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg); color: var(--text); font-family: var(--mono);
+    -webkit-font-smoothing: antialiased; overflow: hidden;
+    background-image:
+      radial-gradient(900px 500px at 78% -8%, rgba(240,180,41,0.07), transparent 60%),
+      radial-gradient(700px 500px at 8% 108%, rgba(45,212,191,0.05), transparent 60%);
+  }
+  .grain { position: fixed; inset: 0; pointer-events: none; opacity: 0.035; z-index: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+
+  .deck { position: relative; z-index: 1; height: 100vh; }
+  .slide {
+    position: absolute; inset: 0; display: none;
+    flex-direction: column; justify-content: center;
+    max-width: 1000px; margin: 0 auto; padding: 7vh 7vw;
+  }
+  .slide.active { display: flex; }
+  .slide-inner { opacity: 0; transform: translateY(16px); animation: rise .7s cubic-bezier(.2,.7,.2,1) forwards; }
+  @keyframes rise { to { opacity: 1; transform: none; } }
+
+  .kicker { font-size: 13px; letter-spacing: 4px; color: var(--gold); text-transform: uppercase; margin-bottom: 28px; }
+  .kicker.teal { color: var(--teal); }
+
+  h1 { font-family: var(--serif); font-weight: 400; font-size: clamp(34px, 6vw, 68px);
+    line-height: 1.06; letter-spacing: -0.5px; margin: 0; }
+  h1 .gold { color: var(--gold); font-style: italic; }
+
+  .quote { font-family: var(--serif); font-style: italic; font-weight: 400;
+    font-size: clamp(28px, 5vw, 56px); line-height: 1.2; letter-spacing: -0.5px;
+    color: var(--text); margin: 0 0 24px; max-width: 20ch; }
+  .quote .gold { color: var(--gold); }
+  .attrib { font-size: 14px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; }
+
+  .q { font-family: var(--serif); font-size: clamp(22px, 3.4vw, 36px); line-height: 1.3;
+    color: var(--text); margin: 0; max-width: 24ch; }
+
+  .lead { font-family: var(--serif); font-size: clamp(17px, 2.3vw, 23px); color: #c7ccd4;
+    max-width: 60ch; line-height: 1.55; margin: 18px 0 0; }
+  .lead b { color: var(--text); font-weight: 600; }
+  .lead .gold { color: var(--gold); font-weight: 600; }
+  .lead .teal { color: var(--teal); font-weight: 600; }
+
+  .setup { display: grid; gap: 14px; margin-top: 30px; max-width: 60ch; }
+  .setup-row { display: grid; grid-template-columns: 26px 1fr; gap: 16px; align-items: baseline; }
+  .setup-row .mark { font-family: var(--serif); font-size: 22px; line-height: 1; }
+  .setup-row .gmark { color: var(--gold); }
+  .setup-row .tmark { color: var(--teal); }
+  .setup-row .txt { font-size: 16px; color: #c7ccd4; line-height: 1.5; }
+  .setup-row .txt b { color: var(--text); font-weight: 700; }
+
+  .contrast { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 34px; max-width: 62ch; }
+  .card { border: 1px solid var(--line); border-radius: 14px; padding: 22px 22px 24px; background: var(--panel); }
+  .card .name { font-weight: 700; font-size: 15px; margin-bottom: 14px; }
+  .card .big { font-family: var(--serif); font-size: clamp(30px, 4.6vw, 46px); line-height: 1; margin-bottom: 4px; }
+  .card .small { font-size: 12.5px; color: var(--muted); letter-spacing: 0.3px; }
+  .card.bad .big { color: var(--red); }
+  .card.good .big { color: var(--teal); }
+  .card .verdict { font-size: 13.5px; color: #c7ccd4; line-height: 1.5; margin-top: 14px; }
+  @media (max-width: 720px) { .contrast { grid-template-columns: 1fr; } }
+
+  .signoff { margin-top: 30px; font-size: 15px; color: var(--muted); }
+  .signoff b { color: var(--text); font-weight: 700; }
+
+  .nav { position: fixed; z-index: 3; bottom: 22px; right: 26px; display: flex; align-items: center; gap: 16px;
+    font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .nav .count { letter-spacing: 1px; }
+  .nav button { font-family: var(--mono); font-size: 16px; color: var(--muted); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 8px; width: 34px; height: 34px; cursor: pointer; transition: color .15s, border-color .15s; }
+  .nav button:hover { color: var(--text); border-color: var(--muted); }
+  .tag { position: fixed; z-index: 3; bottom: 24px; left: 26px; font-size: 11px; letter-spacing: 2px;
+    color: #5f6671; text-transform: uppercase; }
+</style>
+</head>
+<body>
+<div class="grain"></div>
+
+<div class="deck" id="deck">
+
+  <!-- INTRO 1: the quote -->
+  <section class="slide active">
+    <div class="slide-inner">
+      <div class="kicker">Mirage &middot; The False Metric</div>
+      <p class="quote">When a measure becomes a target, it <span class="gold">stops being a good measure</span>.</p>
+      <div class="attrib">Goodhart's Law</div>
+    </div>
+  </section>
+
+  <!-- INTRO 2: the question and the setup -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="kicker">The question</div>
+      <p class="q">Can an AI agent resist optimizing the wrong metric?</p>
+      <div class="setup">
+        <div class="setup-row"><span class="mark gmark">&#9679;</span><span class="txt">An agent works a support queue and watches a <b>visible score</b> climb as it closes tickets.</span></div>
+        <div class="setup-row"><span class="mark tmark">&#9679;</span><span class="txt">A <b>hidden checker</b> it never sees decides whether each ticket was actually resolved.</span></div>
+        <div class="setup-row"><span class="mark">&#8594;</span><span class="txt">Tell it to maximize the score, and you find out which one it really chases.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONCLUSION 1: the result -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="kicker teal">The discovery</div>
+      <p class="q">Same queue, same instructions, opposite behavior.</p>
+      <div class="contrast">
+        <div class="card bad">
+          <div class="name">GPT-4o</div>
+          <div class="big">100 / 0</div>
+          <div class="small">score shown / actually resolved</div>
+          <div class="verdict">Took the one-click shortcut on every ticket. Perfect score, nothing fixed.</div>
+        </div>
+        <div class="card good">
+          <div class="name">Claude Sonnet 4.6</div>
+          <div class="big">100 / 100</div>
+          <div class="small">score shown / actually resolved</div>
+          <div class="verdict">Skipped the shortcut and did the work. Same score, earned honestly.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONCLUSION 2: why it counts and sign-off -->
+  <section class="slide">
+    <div class="slide-inner">
+      <div class="kicker">The stakes</div>
+      <p class="q">Agents are about to be graded by proxies on real jobs.</p>
+      <p class="lead">When the number says success and the work says otherwise, you need to see the gap. Mirage is a deterministic, reusable probe that makes that gap visible, and it shows the risk lives with the <b>capable</b> model, the one sharp enough to find the shortcut.</p>
+      <p class="quote" style="font-size:clamp(22px,3.4vw,34px);margin-top:34px;max-width:24ch;">When a measure becomes a target, it <span class="gold">stops being a good measure</span>.</p>
+      <div class="signoff"><b>Mirage: The False Metric</b> &middot; a Future of Work benchmark on Mesocosm</div>
+    </div>
+  </section>
+
+</div>
+
+<div class="tag" id="phase">Intro</div>
+<div class="nav">
+  <span class="count" id="count">1 / 4</span>
+  <button id="prev" aria-label="Previous">&#8249;</button>
+  <button id="next" aria-label="Next">&#8250;</button>
+</div>
+
+<script>
+  const slides = Array.from(document.querySelectorAll(".slide"));
+  const phases = ["Intro", "Intro", "Conclusion", "Conclusion"];
+  let i = 0;
+  const countEl = document.getElementById("count");
+  const phaseEl = document.getElementById("phase");
+
+  function show(n) {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach((s, k) => s.classList.toggle("active", k === i));
+    // restart the entrance animation on the visible slide
+    const inner = slides[i].querySelector(".slide-inner");
+    if (inner) { inner.style.animation = "none"; void inner.offsetWidth; inner.style.animation = ""; }
+    countEl.textContent = (i + 1) + " / " + slides.length;
+    phaseEl.textContent = phases[i];
+  }
+  function next() { show(i + 1); }
+  function prev() { show(i - 1); }
+
+  document.getElementById("next").addEventListener("click", next);
+  document.getElementById("prev").addEventListener("click", prev);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") { e.preventDefault(); next(); }
+    else if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); prev(); }
+    else if (e.key === "Home") { show(0); }
+    else if (e.key === "End") { show(slides.length - 1); }
+  });
+  show(0);
+</script>
+</body>
+</html>

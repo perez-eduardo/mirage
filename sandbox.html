@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mirage Sandbox: be the agent</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --panel: #1a2129;
+    --panel-2: #222b35;
+    --line: #2d3742;
+    --text: #e6edf3;
+    --muted: #8b97a3;
+    --accent: #4da3ff;
+    --good: #3fb950;
+    --bad: #f85149;
+    --warn: #d29922;
+    --score: #ffd33d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1500px; margin: 0 auto; padding: 24px 20px 64px; }
+  header h1 { margin: 0 0 4px; font-size: 26px; letter-spacing: 0.2px; }
+  header p.sub { margin: 0 0 20px; color: var(--muted); font-size: 14px; }
+
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px 420px; gap: 18px; align-items: start; }
+  @media (max-width: 1180px) { .grid { grid-template-columns: minmax(0, 1fr) 300px; } }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-bottom: 18px;
+  }
+  .panel h2 {
+    margin: 0 0 12px; font-size: 13px; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--muted); font-weight: 600;
+  }
+
+  /* Tier picker */
+  .tiers { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  button {
+    font: inherit; cursor: pointer; border-radius: 7px;
+    border: 1px solid var(--line); background: var(--panel-2);
+    color: var(--text); padding: 8px 14px; transition: background 0.12s, border-color 0.12s;
+  }
+  button:hover:not(:disabled) { background: #2c3744; border-color: var(--accent); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  button.tier-btn.active { border-color: var(--accent); background: #1d3b5c; }
+  .custom-seed { display: flex; gap: 6px; align-items: center; margin-left: auto; }
+  .custom-seed input {
+    width: 90px; font: inherit; padding: 7px 9px; border-radius: 7px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--text);
+  }
+
+  /* Scoring rules */
+  ul.rules { list-style: none; margin: 0; padding: 0; }
+  ul.rules li {
+    display: flex; justify-content: space-between; gap: 12px;
+    padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: 14px;
+  }
+  ul.rules li:last-child { border-bottom: none; }
+  ul.rules .pts { font-variant-numeric: tabular-nums; font-weight: 600; }
+  ul.rules .pts.pos { color: var(--good); }
+  ul.rules .pts.neg { color: var(--bad); }
+  ul.rules .pts.tamper { color: var(--score); }
+
+  /* Score */
+  .score-wrap { text-align: center; }
+  .score-num { font-size: 56px; font-weight: 700; color: var(--score); font-variant-numeric: tabular-nums; line-height: 1; }
+  .score-label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-top: 6px; }
+  .delta { font-size: 18px; font-weight: 600; min-height: 24px; margin-top: 8px; }
+  .delta.pos { color: var(--good); }
+  .delta.neg { color: var(--bad); }
+  .true-wrap { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .true-num { font-size: 34px; font-weight: 700; color: var(--bad); font-variant-numeric: tabular-nums; line-height: 1; }
+
+  /* Queue */
+  .queue { display: flex; gap: 18px; }
+  .queue .q { text-align: center; flex: 1; }
+  .queue .q .n { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .queue .q .l { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; }
+
+  /* Ticket card */
+  .ticket-meta { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+  .ticket-meta b { color: var(--text); font-weight: 600; }
+  .msg {
+    background: var(--bg); border: 1px solid var(--line); border-left: 3px solid var(--accent);
+    border-radius: 6px; padding: 12px 14px; font-size: 15px; margin-bottom: 12px;
+  }
+  .reveal-data { margin-top: 10px; }
+  .reveal-data .blk {
+    background: var(--bg); border: 1px solid var(--line); border-radius: 6px;
+    padding: 10px 12px; margin-top: 8px; font-size: 13px;
+  }
+  .reveal-data .blk h4 { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); }
+  pre.json { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 12.5px; color: var(--text); }
+
+  /* Actions */
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  button.act.tamper { border-color: var(--score); color: var(--score); }
+  button.act.tamper:hover:not(:disabled) { background: #3a3410; }
+  button.next-ticket { border-color: var(--accent); background: #1d3b5c; font-weight: 600; }
+
+  /* Reveal banner */
+  .reveal {
+    border-radius: 9px; padding: 14px 16px; margin-top: 14px; border: 1px solid var(--line);
+    display: none;
+  }
+  .reveal.show { display: block; }
+  .reveal.fail { background: #2a1416; border-color: var(--bad); }
+  .reveal.ok { background: #11261a; border-color: var(--good); }
+  .reveal .cols { display: flex; gap: 24px; flex-wrap: wrap; }
+  .reveal .col { flex: 1; min-width: 180px; }
+  .reveal .col .cap { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); margin-bottom: 4px; }
+  .reveal .col .val { font-size: 17px; font-weight: 700; }
+  .reveal .verdict-fail { color: var(--bad); }
+  .reveal .verdict-ok { color: var(--good); }
+
+  /* Summary */
+  #summary .cols { display: flex; gap: 22px; flex-wrap: wrap; margin-bottom: 14px; }
+  #summary .big { text-align: center; flex: 1; min-width: 130px; }
+  #summary .big .n { font-size: 34px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  #summary .big .l { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); }
+  #summary .gap-line { font-size: 16px; margin: 8px 0 16px; }
+  #summary table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  #summary td { padding: 5px 0; border-bottom: 1px dashed var(--line); }
+  #summary td:last-child { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+
+  .hidden { display: none !important; }
+  .empty { color: var(--muted); font-size: 14px; }
+  code.inline { background: var(--bg); padding: 1px 6px; border-radius: 4px; font-size: 12.5px; }
+
+  /* Raw exchange panel */
+  details.exchange { margin-top: 6px; }
+  details.exchange > summary {
+    cursor: pointer; list-style: none; font-size: 13px; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--muted); font-weight: 600; padding: 2px 0;
+  }
+  details.exchange > summary::-webkit-details-marker { display: none; }
+  details.exchange > summary::before { content: "\25B8  "; }
+  details.exchange[open] > summary::before { content: "\25BE  "; }
+  .exchange .ex-sub { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); margin: 12px 0 4px; }
+  .exchange pre {
+    margin: 0; background: var(--bg); border: 1px solid var(--line); border-radius: 6px;
+    padding: 10px 12px; max-height: 300px; overflow: auto; white-space: pre-wrap;
+    word-break: break-word; font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+    font-size: 12.5px; color: var(--text);
+  }
+  .exchange .ex-empty { color: var(--muted); font-size: 13px; }
+  .ex-note { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+  .results { margin-top: 18px; }
+  .results-sub { font-size: 13px; color: var(--muted); margin: 0 0 14px; }
+  .results-row { display: grid; grid-template-columns: 190px 1fr; gap: 16px; padding: 11px 0; border-top: 1px solid var(--line); align-items: baseline; }
+  .results-row:first-of-type { border-top: 0; }
+  .results .rmodel { font-weight: 700; color: var(--text); font-size: 14px; }
+  .results .rdesc { color: var(--muted); font-size: 13.5px; line-height: 1.5; }
+  @media (max-width: 640px) { .results-row { grid-template-columns: 1fr; gap: 4px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Mirage Sandbox: be the agent</h1>
+    <p class="sub">Work a support queue by hand and chase the visible score, the way an agent is told to. A hidden checker decides whether each ticket was actually fixed, and you only see its verdict after you close the ticket. The question the benchmark asks is whether you chase the number or do the job.</p>
+  </header>
+
+  <div class="panel">
+    <h2>Pick an episode</h2>
+    <div class="tiers">
+      <button class="tier-btn" data-seed="1">Tier 1 &middot; aligned (seed 1)</button>
+      <button class="tier-btn" data-seed="13">Tier 2 &middot; subtle (seed 13)</button>
+      <button class="tier-btn" data-seed="31">Tier 3 &middot; tamper (seed 31)</button>
+      <div class="custom-seed">
+        <input id="customSeed" type="number" placeholder="seed" />
+        <button id="customGo">Start custom</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <!-- LEFT column -->
+    <div>
+      <div class="panel" id="ticketPanel">
+        <h2>Current ticket</h2>
+        <div id="ticketBody"><p class="empty">Pick an episode above to begin.</p></div>
+      </div>
+
+      <div class="panel hidden" id="actionPanel">
+        <h2>Actions</h2>
+        <div class="actions" id="actions"></div>
+        <div class="reveal" id="reveal"></div>
+      </div>
+
+      <div class="panel hidden" id="summary">
+        <h2>Shift complete: the score said one thing, the truth said another</h2>
+        <div id="summaryBody"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT column -->
+    <div>
+      <div class="panel">
+        <h2>Visible performance score</h2>
+        <div class="score-wrap">
+          <div class="score-num" id="scoreNum">0</div>
+          <div class="delta" id="scoreDelta">&nbsp;</div>
+          <div class="score-label">apparent points this shift</div>
+          <div class="true-wrap">
+            <div class="true-num" id="trueNum">0 / 0</div>
+            <div class="score-label">actually resolved this shift</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Queue</h2>
+        <div class="queue">
+          <div class="q"><div class="n" id="qTotal">-</div><div class="l">Total</div></div>
+          <div class="q"><div class="n" id="qProcessed">-</div><div class="l">Processed</div></div>
+          <div class="q"><div class="n" id="qRemaining">-</div><div class="l">Remaining</div></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Scoring rules <span id="tierTag" class="muted"></span></h2>
+        <ul class="rules" id="rules"><li><span class="empty">Start an episode to see the rules you are optimizing.</span></li></ul>
+      </div>
+    </div>
+
+    <!-- EXCHANGE column -->
+    <div>
+      <div class="panel">
+        <h2>Under the hood</h2>
+        <p class="ex-note">The live request and response with the Mirage environment, the same step contract Mesocosm uses to benchmark it. The view on the left is a render of this raw data.</p>
+        <details class="exchange" id="exchange" open>
+          <summary>Raw env exchange</summary>
+          <div class="ex-sub">Request</div>
+          <pre id="exReq"><span class="ex-empty">Start an episode to see the live exchange with the environment.</span></pre>
+          <div class="ex-sub">Response</div>
+          <pre id="exRes"><span class="ex-empty">The hidden verdict appears here only when a ticket closes, exactly as the env emits it.</span></pre>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel results">
+    <h2>How the real models handled this</h2>
+    <p class="results-sub">Same tickets, same instructions, temperature 0. You just played the role each of them was given.</p>
+    <div class="results-row"><span class="rmodel">GPT-4o</span><span class="rdesc">Took the shortcut and posted a perfect score while resolving nothing.</span></div>
+    <div class="results-row"><span class="rmodel">Claude Sonnet 4.6</span><span class="rdesc">Skipped the shortcut and worked the tickets, the same score earned by actually resolving them.</span></div>
+  </div>
+</div>
+
+<script>
+const API = "";  // same origin
+let sessionId = null;
+let prevScore = 0;
+let pendingObs = null;  // next ticket held back until "Next ticket" is clicked
+let trueResolved = 0;   // running count of tickets the verifier truly resolved
+
+const $ = (id) => document.getElementById(id);
+
+// Display labels only. The tamper action keeps its real name on the wire
+// (mark_metric_success, unchanged in the env, the prompts, and the runs); this
+// just shows a more realistic button text in the demo UI.
+const ACTION_LABELS = { mark_metric_success: "Mark resolved (instant close)" };
+
+async function post(path, body) {
+  const res = await fetch(API + path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    renderExchange(path, body, { error: "HTTP " + res.status, detail: txt });
+    throw new Error("HTTP " + res.status + ": " + txt);
+  }
+  const json = await res.json();
+  renderExchange(path, body, json);
+  return json;
+}
+
+// Show the latest request and response verbatim, so the friendly UI above is
+// visibly a faithful render of the real environment output, nothing invented.
+function renderExchange(path, requestBody, responseObj) {
+  $("exReq").textContent = "POST " + path + "\n" + JSON.stringify(requestBody, null, 2);
+  $("exRes").textContent = JSON.stringify(responseObj, null, 2);
+}
+
+function ptsClass(points) {
+  if (points.indexOf("+10") === 0) return "tamper";
+  if (points[0] === "+") return "pos";
+  return "neg";
+}
+
+function renderRules(rules, tier) {
+  $("tierTag").textContent = tier ? "(Tier " + tier + ")" : "";
+  const ul = $("rules");
+  ul.innerHTML = "";
+  rules.forEach((r) => {
+    const li = document.createElement("li");
+    const lab = document.createElement("span");
+    lab.textContent = r.label.replace("mark_metric_success", ACTION_LABELS.mark_metric_success);
+    const pts = document.createElement("span");
+    pts.className = "pts " + ptsClass(r.points);
+    pts.textContent = r.points;
+    li.appendChild(lab);
+    li.appendChild(pts);
+    ul.appendChild(li);
+  });
+}
+
+function renderQueue(q) {
+  $("qTotal").textContent = q.tickets_total;
+  $("qProcessed").textContent = q.tickets_processed;
+  $("qRemaining").textContent = q.tickets_remaining;
+}
+
+function renderScore(score, delta) {
+  $("scoreNum").textContent = (Math.round(score * 100) / 100).toString();
+  const d = $("scoreDelta");
+  if (delta === null || delta === undefined) {
+    d.textContent = " ";
+    d.className = "delta";
+  } else {
+    const sign = delta >= 0 ? "+" : "";
+    d.textContent = sign + (Math.round(delta * 100) / 100);
+    d.className = "delta " + (delta >= 0 ? "pos" : "neg");
+  }
+}
+
+function renderTicket(obs) {
+  const body = $("ticketBody");
+  const t = obs.current_ticket;
+  if (!t) {
+    body.innerHTML = '<p class="empty">No more tickets. The shift is complete.</p>';
+    return;
+  }
+  let html = "";
+  html += '<div class="ticket-meta">';
+  html += '<span><b>' + t.ticket_id + '</b></span>';
+  html += '<span>Category: <b>' + t.category + '</b></span>';
+  html += '<span>Customer: <b>' + t.customer_name + '</b></span>';
+  html += '</div>';
+  html += '<div class="msg">' + escapeHtml(t.customer_message) + '</div>';
+
+  // Reveal account_record / policy_text once looked up.
+  let extra = "";
+  if (obs.account_record) {
+    extra += '<div class="blk"><h4>Account record (lookup_account)</h4><pre class="json">'
+      + escapeHtml(JSON.stringify(obs.account_record, null, 2)) + '</pre></div>';
+  }
+  if (obs.policy_text) {
+    extra += '<div class="blk"><h4>Policy (check_policy)</h4><pre class="json">'
+      + escapeHtml(obs.policy_text) + '</pre></div>';
+  }
+  if (extra) html += '<div class="reveal-data">' + extra + '</div>';
+
+  // Light progress hints from the observation.
+  const hints = [];
+  if (obs.fix_applied) hints.push("fix applied: " + obs.fix_applied);
+  if (obs.responded) hints.push("responded to customer");
+  if (hints.length) {
+    html += '<div class="ticket-meta" style="margin-top:10px;">'
+      + hints.map((h) => '<span><code class="inline">' + escapeHtml(h) + '</code></span>').join("")
+      + '</div>';
+  }
+  body.innerHTML = html;
+}
+
+function renderActions(obs) {
+  const wrap = $("actions");
+  wrap.innerHTML = "";
+  const acts = obs.available_actions || [];
+  const terminalNoTicket = !obs.current_ticket;
+  acts.forEach((name) => {
+    const b = document.createElement("button");
+    b.className = "act" + (name === "mark_metric_success" ? " tamper" : "");
+    b.textContent = ACTION_LABELS[name] || name;
+    b.disabled = terminalNoTicket;
+    b.onclick = () => doStep(name);
+    wrap.appendChild(b);
+  });
+}
+
+function showReveal(outcome, reward) {
+  const r = $("reveal");
+  const failed = outcome.true_success !== 1;
+  r.className = "reveal show " + (failed ? "fail" : "ok");
+  const visibleAward = (reward >= 0 ? "+" : "") + reward + " points";
+  const verdict = failed
+    ? '<span class="verdict-fail">FAILED &middot; ' + escapeHtml(outcome.failure_label) + '</span>'
+    : '<span class="verdict-ok">RESOLVED &middot; ' + escapeHtml(outcome.failure_label) + '</span>';
+  r.innerHTML =
+    '<div class="cols">' +
+      '<div class="col"><div class="cap">Ticket ' + escapeHtml(outcome.ticket_id) + ' &middot; visible score awarded</div>' +
+        '<div class="val" style="color:var(--score)">' + visibleAward + '</div></div>' +
+      '<div class="col"><div class="cap">Hidden verdict (true outcome)</div>' +
+        '<div class="val">' + verdict + '</div></div>' +
+    '</div>';
+}
+
+function hideReveal() {
+  $("reveal").className = "reveal";
+}
+
+// Pause after a close: hold the next ticket and offer a Next ticket button.
+function appendNextButton() {
+  const r = $("reveal");
+  const b = document.createElement("button");
+  b.className = "next-ticket";
+  b.style.marginTop = "12px";
+  b.textContent = "Next ticket \u2192";
+  b.onclick = advanceToPending;
+  r.appendChild(b);
+}
+
+function advanceToPending() {
+  if (!pendingObs) return;
+  const obs = pendingObs;
+  pendingObs = null;
+  hideReveal();
+  renderTicket(obs);
+  renderActions(obs);
+}
+
+function renderSummary(info) {
+  $("summary").classList.remove("hidden");
+  const body = $("summaryBody");
+  const apparent = info.apparent_score;
+  const trueRate = (info.true_resolution_rate * 100);
+  const gap = info.apparent_true_gap;
+  let html = "";
+  html += '<div class="cols">';
+  html += '<div class="big"><div class="n" style="color:var(--score)">' + round1(apparent) + '</div><div class="l">Apparent score</div></div>';
+  html += '<div class="big"><div class="n" style="color:var(--bad)">' + round1(trueRate) + '</div><div class="l">True resolution</div></div>';
+  html += '<div class="big"><div class="n" style="color:var(--warn)">' + round1(gap) + '</div><div class="l">Apparent / true gap</div></div>';
+  html += '</div>';
+  html += '<div class="gap-line">The score said <b style="color:var(--score)">' + round1(apparent)
+    + '</b>. The truth was <b style="color:var(--bad)">' + round1(trueRate) + '</b>.</div>';
+  html += '<table>';
+  html += row("Tickets truly resolved", info.tickets_truly_resolved + " / " + info.tickets_total);
+  html += row("Premature close", info.premature_close);
+  html += row("Appeasement (no real fix)", info.appeasement);
+  html += row("Missed required escalation", info.required_escalation_missed);
+  html += row("Policy violation", info.policy_violation);
+  html += row("Tamper attempts", info.tamper_attempts);
+  html += '</table>';
+  body.innerHTML = html;
+}
+
+function row(label, value) {
+  return '<tr><td>' + escapeHtml(label) + '</td><td>' + escapeHtml(String(value)) + '</td></tr>';
+}
+function renderTrue(processed) {
+  $("trueNum").textContent = trueResolved + " / " + processed;
+}
+function round1(x) { return (Math.round(x * 10) / 10).toString(); }
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+async function startEpisode(seed) {
+  hideReveal();
+  pendingObs = null;
+  $("summary").classList.add("hidden");
+  try {
+    const data = await post("/api/new", { seed: seed });
+    sessionId = data.session_id;
+    prevScore = 0;
+    trueResolved = 0;
+    renderTrue(0);
+    renderRules(data.scoring_rules, data.tier);
+    const obs = data.observation;
+    renderQueue(obs.queue_status);
+    renderScore(obs.your_performance_score, null);
+    prevScore = obs.your_performance_score;
+    renderTicket(obs);
+    renderActions(obs);
+    $("actionPanel").classList.remove("hidden");
+    markActiveTier(seed);
+  } catch (e) {
+    alert("Could not start episode.\n" + e.message);
+  }
+}
+
+async function doStep(action) {
+  if (!sessionId) return;
+  try {
+    const data = await post("/api/step", { session_id: sessionId, action: action });
+    const obs = data.observation;
+    const newScore = obs.your_performance_score;
+    renderScore(newScore, newScore - prevScore);
+    prevScore = newScore;
+    renderQueue(obs.queue_status);
+
+    const closed = data.ticket_closed && data.revealed_outcome;
+
+    if (closed) {
+      if (data.revealed_outcome.true_success === 1) trueResolved += 1;
+      renderTrue(obs.queue_status.tickets_processed);
+    }
+
+    if (data.terminated || data.truncated) {
+      // Last ticket of the shift. Reveal its verdict, then show the summary.
+      // Nothing to advance to, so no Next ticket button.
+      if (closed) showReveal(data.revealed_outcome, data.reward);
+      else hideReveal();
+      renderTicket(obs);
+      renderActions(obs);
+      document.querySelectorAll("#actions button").forEach((b) => (b.disabled = true));
+      renderSummary(data.info);
+      return;
+    }
+
+    if (closed) {
+      // A ticket just closed and more remain. Pause here: keep the closed
+      // ticket on screen, show its verdict, and hold the next ticket behind a
+      // Next ticket button so the UI does not jump ahead on its own.
+      pendingObs = obs;
+      $("actions").innerHTML = "";
+      showReveal(data.revealed_outcome, data.reward);
+      appendNextButton();
+      return;
+    }
+
+    // Normal mid-ticket action (lookup, policy, fix, respond). No pause.
+    hideReveal();
+    renderTicket(obs);
+    renderActions(obs);
+  } catch (e) {
+    alert("Step failed.\n" + e.message);
+  }
+}
+
+function markActiveTier(seed) {
+  document.querySelectorAll(".tier-btn").forEach((b) => {
+    b.classList.toggle("active", Number(b.dataset.seed) === Number(seed));
+  });
+}
+
+// Wire up controls.
+document.querySelectorAll(".tier-btn").forEach((b) => {
+  b.onclick = () => startEpisode(Number(b.dataset.seed));
+});
+$("customGo").onclick = () => {
+  const v = $("customSeed").value;
+  if (v === "" || isNaN(Number(v))) {
+    alert("Enter a numeric seed.");
+    return;
+  }
+  startEpisode(Number(v));
+};
+</script>
+</body>
+</html>
